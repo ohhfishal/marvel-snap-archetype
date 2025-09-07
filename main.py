@@ -37,16 +37,9 @@ def generate_rule_explanation(rule):
         parts.append(f"Must NOT contain: [{', '.join(rule['banned_cards'])}]")
     return "; ".join(parts)
 
-def find_most_recent_file(pattern):
-    """Finds the most recently modified file in the current directory that matches a pattern."""
-    list_of_files = glob.glob(pattern)
-    return max(list_of_files, key=os.path.getmtime) if list_of_files else None
-
-
 def get_archetype_from_deckcode(deck: str, baseEncoded=True) -> str:
     # TODO: Implement
     raise Exception("Not implemented")
-
 
 def get_archetype(deck: Set[str]) -> str:
     """ 
@@ -62,11 +55,3 @@ def get_archetype(deck: Set[str]) -> str:
             return rule['name']
     return 'Miscellaneous / Other'
 
-def main():
-    test_deck = set(["agatha harkness", "hela", "red shift"])
-    # TODO: Set up unit tests
-    print(get_archetype(test_deck))
-    print(get_archetype(set(["thor", "beta ray bill", "jane foster mighty thor"])))
-
-if __name__ == '__main__':
-    main()
