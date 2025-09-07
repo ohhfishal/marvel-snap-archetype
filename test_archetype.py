@@ -5,12 +5,20 @@ from main import get_archetype
 class TestGetArchetype(unittest.TestCase):
     test_cases = [
         (
-            "Agatha Hela",
+            ("Agatha Hela", "Agatha"),
             {"agatha harkness", "hela", "red shift"},
         ),
         (
-            "Thors",
+            ("Thors", "Thors"),
             {"thor", "beta ray bill", "jane foster mighty thor"},
+        ),
+        (
+            ("Cerebro-2", "Cerebro"),
+            {"cerebro", "mystique", "lasher"},
+        ),
+        (
+            ("Cerebro-3", "Cerebro"),
+            {"cerebro", "mystique", "scarlet witch"},
         ),
         # TODO: Add more
     ]

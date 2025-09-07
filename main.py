@@ -1,9 +1,13 @@
 import re
-import glob
-import os
-from typing import Set
+from typing import Set, Tuple
 import json
+import logging
 
+if __name__ == "__main__":
+    logging.basicConfig(level=logging.DEBUG)
+
+
+logger = logging.getLogger(__name__)
 
 RULE_TYPES = ["core_cards", "at_least_one_of", "banned_cards"]
 
@@ -33,6 +37,8 @@ def normalize_card_name(card_name):
 
 # TODO: Move
 definitions = []
+archetypes = set()
+# TODO: Probably doesn't work when imported by another file
 with open("rules.json", "r") as file:
     rules = json.load(file)
     for rule in rules["definitions"]:
@@ -40,7 +46,10 @@ with open("rules.json", "r") as file:
             if key in RULE_TYPES:
                 rule[key] = {normalize_card_name(c) for c in value}
         definitions.append(rule)
-        print(generate_rule_explanation(rule))
+        archetypes.add(rule.get("archetype", rule["name"]))
+
+logger.debug(f"Loaded {len(definitions)} rules")
+logger.debug(f"Supported Archetypes: {archetypes}")
 
 
 def get_archetype_from_deckcode(deck: str, baseEncoded=True) -> str:
@@ -48,9 +57,9 @@ def get_archetype_from_deckcode(deck: str, baseEncoded=True) -> str:
     raise Exception("Not implemented")
 
 
-def get_archetype(deck: Set[str]) -> str:
+def get_archetype(deck: Set[str]) -> Tuple[str, str]:
     """
-    Returns a string describing a deck's archetype
+    Returns a tuple contain a decks name and archetype
 
     deck - Set of normalized names of cards in a deck (Ex: {"thor", "beta ray bill", "jane foster mighty thor"})
     """
@@ -63,5 +72,5 @@ def get_archetype(deck: Set[str]) -> str:
             and (not at_least_one or at_least_one.intersection(deck))
             and (not banned or not banned.intersection(deck))
         ):
-            return rule["name"]
-    return "Miscellaneous / Other"
+            return rule["name"], rule.get("archetype", rule["name"])
+    return "Miscellaneous / Other", "Other"
