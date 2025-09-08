@@ -1,15 +1,64 @@
-import re
 from typing import Set, Tuple
+import base64
 import json
 import logging
+import string
 
 if __name__ == "__main__":
     logging.basicConfig(level=logging.DEBUG)
 
-
 logger = logging.getLogger(__name__)
 
 RULE_TYPES = ["core_cards", "at_least_one_of", "banned_cards"]
+
+_NORMALIZE_CACHE = {
+    "Mister Negative": "MrNgtvA",
+    "The First Ghost Rider": "GhstThFrstRdr12",
+    "Jane Foster Mighty Thor": "JnFstrA",
+    "M.O.D.O.K.": "Mdk5",
+    "Sam Wilson Captain America": "SmWlsn9",
+    # TODO: Need the codes for cards I don't have...
+}
+
+
+def decode_deckcode(deckcode: str) -> Set[str]:
+    """
+    Converts the raw Marvel Snap's copied deckcode to a set of Marvel Snap normalized card names (Ex: "SpdrMn9").
+    NOTE: Currently only supports the most recent version of deck encoding introduced in 2024.
+    """
+    lines = [
+        line
+        for line in deckcode.splitlines()
+        if not line.strip().startswith("#") and len(line.strip()) != 0
+    ]
+    if len(lines) != 1:
+        raise ValueError(
+            f"invalid deckcode: expected 1 non-commented line got {len(lines)}"
+        )
+    return {card for card in base64.b64decode(lines[0]).decode("utf-8").split(",")}
+
+
+def normalize_card_name(name: str) -> str:
+    """
+    Normalizes a Marvel Snap card name to the internal shortened encoding.
+    (Ex: Spider-Man -> "SpdrMn9")
+    """
+    if normalized := _NORMALIZE_CACHE.get(name, None):
+        return normalized
+
+    count = 1
+    iterable = name.lstrip("The").lstrip(" ")
+    builder = iterable[0]
+    for char in iterable[1:]:
+        if char in string.punctuation or char.isspace():
+            continue
+        if char not in "aeiouy":
+            builder += char
+        count += 1
+    hex_count = f"{count:x}".upper()
+    normalized = f"{builder}{hex_count}"
+    _NORMALIZE_CACHE[name] = normalized
+    return normalized
 
 
 def generate_rule_explanation(rule):
@@ -22,17 +71,6 @@ def generate_rule_explanation(rule):
     if cards := rule.get("banned_cards"):
         parts.append(f"Must NOT contain: [{', '.join(cards)}]")
     return "; ".join(parts)
-
-
-def normalize_card_name(card_name):
-    """Cleans card names for matching."""
-    # TODO: Swap to normalization deck codes use?
-    if not isinstance(card_name, str):
-        return None
-    name = re.sub(r"^\(\d+\)\s*", "", card_name)
-    name = name.replace("-", " ")
-    name = re.sub(r"[^a-zA-Z0-9\s]", "", name)
-    return name.lower().strip()
 
 
 # TODO: Move
@@ -52,16 +90,16 @@ logger.debug(f"Loaded {len(definitions)} rules")
 logger.debug(f"Supported Archetypes: {archetypes}")
 
 
-def get_archetype_from_deckcode(deck: str, baseEncoded=True) -> str:
-    # TODO: Implement
-    raise Exception("Not implemented")
+def get_archetype_from_deckcode(deck: str) -> str:
+    # TODO: Write tests to capture this
+    return get_archetype(decode_deckcode(deck))
 
 
 def get_archetype(deck: Set[str]) -> Tuple[str, str]:
     """
     Returns a tuple contain a decks name and archetype
 
-    deck - Set of normalized names of cards in a deck (Ex: {"thor", "beta ray bill", "jane foster mighty thor"})
+    deck - Set of normalized names of cards in a deck (Ex: {"Hd4", "Zb4", "SmWlsn9"})
     """
     for rule in definitions:
         core = rule.get("core_cards", set())

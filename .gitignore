@@ -208,3 +208,5 @@ __marimo__/
 
 .devenv/
 .devenv*
+.pre-commit-config.yaml
+
