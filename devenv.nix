@@ -27,7 +27,7 @@ in
     unit-tests = {
       enable = true;
       name = "py-unit-tests";
-      # types = [ "python" ];
+      types = [ "python" ];
       entry = "python -m unittest discover .";
       language = "python";
       pass_filenames = false;
