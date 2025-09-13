@@ -80,7 +80,7 @@ func (config *Analysis) Run(ctx context.Context, logger *slog.Logger) error {
 	}
 	defer rawResponse.Body.Close()
 
-	if rawResponse.StatusCode >= 400 {
+	if rawResponse.StatusCode >= 400 || rawResponse.StatusCode < 200 {
 		return fmt.Errorf("request failed: %d", rawResponse.StatusCode)
 	}
 
