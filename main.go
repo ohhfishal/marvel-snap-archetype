@@ -2,15 +2,15 @@ package main
 
 import (
 	"context"
-	"encoding/csv"
-	json "encoding/json/v2"
 	"errors"
 	"fmt"
 	"github.com/alecthomas/kong"
+	"github.com/ohhfishal/marvel-snap-archetype/job"
 	"log/slog"
-	"net/http"
 	"os"
 	"os/signal"
+	"path/filepath"
+	"sync"
 	"syscall"
 )
 
@@ -21,18 +21,7 @@ type CLI struct {
 type Analysis struct {
 	TID    string `arg:"" help:"Tournament ID (Check TopDeck URL)."`
 	ApiKey string `env:"API_KEY" help:"TopDeck API Key"`
-	Output string `default:"out.csv" type:"path" help:"Output file path"`
-}
-
-type TournamentResponse struct {
-	TID       string `json:"TID"`
-	Standings []struct {
-		Name     string `json:"name"`
-		Decklist string `json:"decklist"` // Marvel Snap deck code
-		Deck     struct {
-			Cards map[string]any `json:"Decklist"` // Ex: "Kraven": { "id": "#", "count": 1 }
-		} `json:"deckObj"`
-	} `json:"standings"`
+	Output string `default:"output" type:"path" help:"Output directory path"`
 }
 
 func main() {
@@ -61,59 +50,28 @@ func (config *Analysis) Run(ctx context.Context, logger *slog.Logger) error {
 		return errors.New("missing env: API_KEY")
 	}
 
-	request, err := http.NewRequestWithContext(
-		ctx,
-		http.MethodGet,
-		fmt.Sprintf("https://topdeck.gg/api/v2/tournaments/%s", config.TID),
-		nil,
-	)
+	if err := os.MkdirAll(config.Output, 0755); err != nil {
+		return fmt.Errorf("creating output directory: %w", err)
+	}
+
+	response, err := job.GetResults(ctx, config.ApiKey, config.TID)
 	if err != nil {
-		return fmt.Errorf("creating request: %w", err)
-	}
-	request.Header.Add("Authorization", config.ApiKey)
-
-	client := &http.Client{}
-
-	rawResponse, err := client.Do(request)
-	if err != nil {
-		return fmt.Errorf("making request: %w", err)
-	}
-	defer rawResponse.Body.Close()
-
-	if rawResponse.StatusCode >= 400 || rawResponse.StatusCode < 200 {
-		return fmt.Errorf("request failed: %d", rawResponse.StatusCode)
+		return fmt.Errorf("getting tournament results: %w", err)
 	}
 
-	var response TournamentResponse
-	if err := json.UnmarshalRead(rawResponse.Body, &response); err != nil {
-		return fmt.Errorf("got invalid json: %w", err)
-	}
-
-	mapping := map[string]int{}
-	for _, player := range response.Standings {
-		for card, _ := range player.Deck.Cards {
-			if _, ok := mapping[card]; !ok {
-				mapping[card] = 0
-			}
-			mapping[card] += 1
+	var wg sync.WaitGroup
+	wg.Go(func() {
+		if err := job.CardStats(
+			filepath.Join(config.Output, "cards.csv"),
+			response.Standings,
+			[]int{1024, 64, 32, 16}, // TODO: Make configurable and passed in somehow
+		); err != nil {
+			logger.Error("job failed",
+				slog.Any("error", err),
+				slog.String("job", "cards"),
+			)
 		}
-	}
-
-	file, err := os.OpenFile(config.Output, os.O_WRONLY|os.O_TRUNC|os.O_CREATE, 0644)
-	if err != nil {
-		return fmt.Errorf("opening file: %w", err)
-	}
-	writer := csv.NewWriter(file)
-	defer writer.Flush()
-
-	if err := writer.Write([]string{"Name", "Count"}); err != nil {
-		return fmt.Errorf("writing to file: %w", err)
-	}
-
-	for card, count := range mapping {
-		if err := writer.Write([]string{card, fmt.Sprintf("%d", count)}); err != nil {
-			return fmt.Errorf("writing to file: %w", err)
-		}
-	}
+	})
+	wg.Wait()
 	return nil
 }
