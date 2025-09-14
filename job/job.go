@@ -9,6 +9,7 @@ import (
 
 type Standing struct {
 	Name     string `json:"name"`
+	ID       string `json:"id"`
 	Standing int    `json:"standing"`
 	Decklist string `json:"decklist"` // Marvel Snap deck code
 	Deck     struct {

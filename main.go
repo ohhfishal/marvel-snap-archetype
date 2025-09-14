@@ -37,7 +37,7 @@ func main() {
 		&cli,
 		kong.BindTo(ctx, new(context.Context)),
 	)
-	logger := slog.New(slog.NewJSONHandler(os.Stderr, nil))
+	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
 
 	if err := kongCtx.Run(logger); err != nil {
 		logger.Error("failed", slog.Any("error", err))
@@ -59,16 +59,31 @@ func (config *Analysis) Run(ctx context.Context, logger *slog.Logger) error {
 		return fmt.Errorf("getting tournament results: %w", err)
 	}
 
+	cuts := []int{1024, 64, 32, 16} // TODO: Make configurable
+
 	var wg sync.WaitGroup
 	wg.Go(func() {
 		if err := job.CardStats(
 			filepath.Join(config.Output, "cards.csv"),
 			response.Standings,
-			[]int{1024, 64, 32, 16}, // TODO: Make configurable and passed in somehow
+			cuts,
 		); err != nil {
 			logger.Error("job failed",
 				slog.Any("error", err),
 				slog.String("job", "cards"),
+			)
+		}
+	})
+	wg.Go(func() {
+		if err := job.DeckStats(
+			logger.With("job", "decks"),
+			filepath.Join(config.Output, "decks.csv"),
+			response.Standings,
+			cuts,
+		); err != nil {
+			logger.Error("job failed",
+				slog.Any("error", err),
+				slog.String("job", "decks"),
 			)
 		}
 	})

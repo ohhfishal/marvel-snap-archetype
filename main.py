@@ -77,7 +77,7 @@ def generate_rule_explanation(rule):
 definitions = []
 archetypes = set()
 # TODO: Probably doesn't work when imported by another file
-with open("rules.json", "r") as file:
+with open("assets/rules.json", "r") as file:
     rules = json.load(file)
     for rule in rules["definitions"]:
         for key, value in rule.items():
