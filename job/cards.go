@@ -39,6 +39,7 @@ func CardStats(path string, standings []Standing, cuts []int) error {
 	if err != nil {
 		return fmt.Errorf("opening file: %w", err)
 	}
+	defer file.Close()
 	writer := csv.NewWriter(file)
 	defer writer.Flush()
 

@@ -39,12 +39,35 @@ func DeckStats(logger *slog.Logger, path string, standings []Standing, cuts []in
 		return errors.New("must include at least one cut of players")
 	}
 
-	mappings := map[int]map[string]int{}
+	// TODO: This is janky code
+
+	// TopCut: Archetype: Variants: count
+	mappings := map[int]map[string]map[string]int{}
 	for _, cut := range cuts {
-		mappings[cut] = map[string]int{}
+		mappings[cut] = map[string]map[string]int{}
 	}
 
-	// TODO: MOVE
+	for _, player := range standings {
+		for topcut, mapping := range mappings {
+			if player.Standing > topcut {
+				continue
+			}
+
+			name, archetype := GetArchetype(player.Deck.Cards)
+
+			// Check if the high level archetype is there
+			if _, ok := mapping[archetype]; !ok {
+				mapping[archetype] = map[string]int{}
+			}
+
+			// Increment the counter
+			if _, ok := mapping[archetype][name]; !ok {
+				mapping[archetype][name] = 0
+			}
+			mapping[archetype][name] += 1
+		}
+	}
+
 	file, err := os.OpenFile(
 		path,
 		os.O_WRONLY|os.O_TRUNC|os.O_CREATE,
@@ -53,22 +76,63 @@ func DeckStats(logger *slog.Logger, path string, standings []Standing, cuts []in
 	if err != nil {
 		return fmt.Errorf("opening file: %w", err)
 	}
+	defer file.Close()
+
 	writer := csv.NewWriter(file)
 	defer writer.Flush()
-	header := []string{"Name", "Category"}
+
+	header := []string{"Category", "Derivation", "Count"}
+	for _, cut := range cuts[1:] {
+		header = append(header, fmt.Sprintf("Top %d", cut))
+	}
+
 	if err := writer.Write(header); err != nil {
 		return fmt.Errorf("writing to file: %w", err)
 	}
+	// mappings := map[int]map[string]map[string]int{}
 
-	for _, player := range standings {
-		for topcut, _ := range mappings {
-			if player.Standing > topcut {
-				continue
+	for archetype, subtypes := range mappings[cuts[0]] {
+		records := [][]string{}
+		totals := map[int]int{cuts[0]: 0}
+		for name, count := range subtypes {
+			record := []string{
+				archetype,
+				name,
+				fmt.Sprintf("%d", count),
 			}
-			name, category := GetArchetype(player.Deck.Cards)
-			if err := writer.Write([]string{name, category}); err != nil {
-				return fmt.Errorf("writing to file: %w", err)
+			totals[cuts[0]] += count
+			for _, cut := range cuts[1:] {
+				if _, ok := totals[cut]; !ok {
+					totals[cut] = 0
+				}
+
+				if count, ok := mappings[cut][archetype][name]; ok {
+					record = append(record, fmt.Sprintf("%d", count))
+					totals[cut] += count
+				} else {
+					record = append(record, "0")
+				}
+
 			}
+			records = append(records, record)
+		}
+
+		totalRecord := []string{
+			archetype,
+			"",
+			fmt.Sprintf("%d", totals[cuts[0]]),
+		}
+
+		for _, cut := range cuts[1:] {
+			totalRecord = append(totalRecord, fmt.Sprintf("%d", totals[cut]))
+		}
+
+		if err := writer.WriteAll([][]string{totalRecord}); err != nil {
+			return fmt.Errorf("writing to file: %w", err)
+		}
+
+		if err := writer.WriteAll(records); err != nil {
+			return fmt.Errorf("writing to file: %w", err)
 		}
 	}
 	return nil
