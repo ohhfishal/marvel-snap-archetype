@@ -1,8 +1,11 @@
 package assets
 
 import (
-	_ "embed"
+	"embed"
 )
 
 //go:embed rules.json
 var RulesJSON []byte
+
+//go:embed *
+var Assets embed.FS
