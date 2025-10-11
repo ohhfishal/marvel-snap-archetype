@@ -8,6 +8,7 @@ import (
 	"github.com/ohhfishal/marvel-snap-archetype/assets"
 	"log/slog"
 	"os"
+	"strings"
 )
 
 var (
@@ -54,6 +55,10 @@ func DeckStats(logger *slog.Logger, path string, standings []Standing, cuts []in
 			}
 
 			name, archetype := GetArchetype(player.Deck.Cards)
+
+			if strings.Contains(name, "Misc") {
+				slog.Warn("deck classified as other", "deck", player.Deck.Cards)
+			}
 
 			// Check if the high level archetype is there
 			if _, ok := mapping[archetype]; !ok {
@@ -119,9 +124,10 @@ func DeckStats(logger *slog.Logger, path string, standings []Standing, cuts []in
 
 		totalRecord := []string{
 			archetype,
-			"",
+			"Total",
 			fmt.Sprintf("%d", totals[cuts[0]]),
 		}
+		slog.Debug("sum", "archetype", archetype, "total", totalRecord)
 
 		for _, cut := range cuts[1:] {
 			totalRecord = append(totalRecord, fmt.Sprintf("%d", totals[cut]))

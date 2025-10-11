@@ -4,6 +4,7 @@ import (
 	"encoding/csv"
 	"errors"
 	"fmt"
+	"log/slog"
 	"os"
 )
 
@@ -17,11 +18,16 @@ func CardStats(path string, standings []Standing, cuts []int) error {
 		mappings[cut] = map[string]int{}
 	}
 
+	slog.Info("parsing cards", "num_players", len(standings))
 	for _, player := range standings {
 		for topcut, mapping := range mappings {
 			if player.Standing > topcut {
 				continue
 			}
+			if len(player.Deck.Cards) != 12 {
+				slog.Warn("Deck not made of 12 cards", "player", player)
+			}
+			slog.Debug("player using", "deck", player.Deck.Cards)
 			for card, _ := range player.Deck.Cards {
 				if _, ok := mapping[card]; !ok {
 					mapping[card] = 0

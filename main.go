@@ -15,7 +15,8 @@ import (
 )
 
 type CLI struct {
-	Analysis Analysis `cmd:"" help:"Get stats on a tournament."`
+	Analysis Analysis   `cmd:"" help:"Get stats on a tournament."`
+	Level    slog.Level `enum:"INFO,DEBUG" default:"info"`
 }
 
 type Analysis struct {
@@ -37,7 +38,8 @@ func main() {
 		&cli,
 		kong.BindTo(ctx, new(context.Context)),
 	)
-	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
+	logger := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: cli.Level}))
+	slog.SetDefault(logger)
 
 	if err := kongCtx.Run(logger); err != nil {
 		logger.Error("failed", slog.Any("error", err))
@@ -59,7 +61,8 @@ func (config *Analysis) Run(ctx context.Context, logger *slog.Logger) error {
 		return fmt.Errorf("getting tournament results: %w", err)
 	}
 
-	cuts := []int{1024, 64, 32, 16} // TODO: Make configurable
+	// cuts := []int{1024, 64, 32, 16} // TODO: Make configurable
+	cuts := []int{1024} // TODO: Make configurable
 
 	var wg sync.WaitGroup
 	wg.Go(func() {
